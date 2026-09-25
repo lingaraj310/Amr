@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EdgeFleet — Intelligent 3D AMR Fleet Simulation & Management</title>
+  <meta name="description" content="Professional browser-based 3D Autonomous Mobile Robot (AMR) warehouse fleet simulation, MAPF, D* Lite dynamic replanning, MQTT & UWB communication.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="js/libs/three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar">
+      <div class="brand-header">
+        <div class="brand-icon">EF</div>
+        <div class="brand-title">
+          <h1>EDGEFLEET</h1>
+          <span>AMR Fleet OS v2.4</span>
+        </div>
+      </div>
+
+      <ul class="nav-links">
+        <li class="nav-item" data-view="overview">
+          <span class="icon">📊</span>
+          <span>Overview</span>
+        </li>
+        <li class="nav-item active" data-view="simulation">
+          <span class="icon">🏭</span>
+          <span>3D Simulation</span>
+          <span class="nav-badge">Live 3D</span>
+        </li>
+        <li class="nav-item" data-view="tasks">
+          <span class="icon">📋</span>
+          <span>Tasks & Bidding</span>
+        </li>
+        <li class="nav-item" data-view="communication">
+          <span class="icon">📡</span>
+          <span>Live Communication</span>
+          <span class="nav-badge">MQTT</span>
+        </li>
+        <li class="nav-item" data-view="fleet">
+          <span class="icon">🤖</span>
+          <span>Fleet Telemetry</span>
+          <span class="nav-badge">5 AMRs</span>
+        </li>
+        <li class="nav-item" data-view="algorithms">
+          <span class="icon">⚡</span>
+          <span>MAPF & D* Lite</span>
+        </li>
+        <li class="nav-item" data-view="safety">
+          <span class="icon">🛡️</span>
+          <span>Safety Supervisor</span>
+          <span class="nav-badge" style="color:var(--status-success)">0 Collisions</span>
+        </li>
+        <li class="nav-item" data-view="scenarios">
+          <span class="icon">🚨</span>
+          <span>Scenario Control</span>
+        </li>
+        <li class="nav-item" data-view="analytics">
+          <span class="icon">📈</span>
+          <span>Analytics & Benchmark</span>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="system-status-indicator">
+          <span class="pulse-dot"></span>
+          <span>AUTONOMOUS ENGINE ONLINE</span>
+        </div>
+        <div style="font-size:10.5px;color:var(--tx-muted);display:flex;justify-content:space-between">
+          <span>MassRobotics MQTT</span>
+          <span>UWB Active</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+      <!-- Top Application Bar -->
+      <header id="top-bar">
+        <div class="top-bar-left">
+          <h2 class="page-title" id="page-title-text">3D Warehouse Digital Twin & Trajectory Execution</h2>
+        </div>
+
+        <div class="top-kpis">
+          <div class="kpi-chip">
+            <span class="label">Active Tasks:</span>
+            <span class="val blue" id="kpi-active-tasks">0</span>
+          </div>
+          <div class="kpi-chip">
+            <span class="label">Completed:</span>
+            <span class="val green" id="kpi-completed-tasks">0</span>
+          </div>
+          <div class="kpi-chip">
+            <span class="label">Avg Battery:</span>
+            <span class="val green" id="kpi-battery-avg">92%</span>
+          </div>
+          <div class="kpi-chip">
+            <span class="label">Reservations:</span>
+            <span class="val" id="kpi-active-reservations">0</span>
+          </div>
+          <div class="kpi-chip" style="border-color:rgba(16,185,129,0.3)">
+            <span class="label">Collisions:</span>
+            <span class="val green" id="kpi-collisions">0</span>
+          </div>
+          <div class="kpi-chip" style="border-color:rgba(16,185,129,0.3)">
+            <span class="label">Deadlocks:</span>
+            <span class="val green" id="kpi-deadlocks">0</span>
+          </div>
+        </div>
+
+        <div class="top-bar-right">
+          <div class="sim-controls-group">
+            <button class="btn-icon-text primary" id="btn-play-pause">▶ Start Simulation</button>
+            <button class="btn-icon-text" id="btn-step" title="Step one decision tick">⏭ Step</button>
+            <button class="btn-icon-text" id="btn-reset">↻ Reset</button>
+            <div class="speed-selector">
+              <button class="speed-btn" data-speed="0.5">0.5×</button>
+              <button class="speed-btn active" data-speed="1.0">1×</button>
+              <button class="speed-btn" data-speed="2.0">2×</button>
+              <button class="speed-btn" data-speed="5.0">5×</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- View 1: 3D SIMULATION VIEW (Primary) -->
+      <section class="view-panel active" id="view-simulation">
+        <div id="canvas-container">
+          <canvas id="canvas3d"></canvas>
+        </div>
+
+        <!-- 3D Overlay Top Left (Quick Fleet Status) -->
+        <div class="overlay-top-left">
+          <div class="overlay-panel">
+            <div class="overlay-panel-header">
+              <span>Fleet Status (5 AMRs)</span>
+              <span style="color:var(--status-success);font-size:10px">ALL ACTIVE</span>
+            </div>
+            <div class="amr-quick-list" id="amr-quick-list-body">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 3D Overlay Top Right (Developer Performance & Diagnostics HUD) -->
+        <div class="overlay-top-right">
+          <div class="overlay-panel diagnostics-hud">
+            <div class="overlay-panel-header" style="margin-bottom:4px">
+              <span>Performance & Diagnostics</span>
+              <span class="hud-val ok" id="hud-three-fps">60 FPS</span>
+            </div>
+            <div class="hud-row"><span>Frame Time:</span><span class="hud-val" id="hud-frame-time">16.6 ms</span></div>
+            <div class="hud-row"><span>3D Render:</span><span class="hud-val" id="hud-render-time">4.2 ms</span></div>
+            <div class="hud-row"><span>Sim Tick (25Hz):</span><span class="hud-val" id="hud-sim-time">1.5 ms</span></div>
+            <div class="hud-row"><span>Prediction Time:</span><span class="hud-val" id="hud-pred-time">0.8 ms</span></div>
+            <div class="hud-row"><span>Draw Calls:</span><span class="hud-val" id="hud-draw-calls">--</span></div>
+            <div class="hud-row"><span>Triangles:</span><span class="hud-val" id="hud-triangles">--</span></div>
+            <div class="hud-row"><span>Scene Meshes:</span><span class="hud-val" id="hud-scene-objects">--</span></div>
+            <div class="hud-row"><span>Fleet AMRs:</span><span class="hud-val ok" id="hud-amr-count">5/5 Active</span></div>
+            <div class="hud-row"><span>Graph Topology:</span><span class="hud-val" id="hud-graph-stats">--</span></div>
+          </div>
+        </div>
+
+        <!-- 3D Overlay Bottom Controls -->
+        <div class="overlay-bottom-bar">
+          <div class="overlay-camera-controls">
+            <span style="font-size:11px;color:var(--tx-muted);text-transform:uppercase;font-weight:700">Camera</span>
+            <button class="ctrl-btn active" data-cam="iso">Overview</button>
+            <button class="ctrl-btn" data-cam="top">Top 2D/3D</button>
+            <button class="ctrl-btn" data-cam="free">Free Orbit</button>
+            <button class="ctrl-btn" data-cam="follow">Follow AMR</button>
+          </div>
+
+          <div class="overlay-layer-toggles">
+            <span style="font-size:11px;color:var(--tx-muted);text-transform:uppercase;font-weight:700">Layers</span>
+            <label class="layer-toggle"><input type="checkbox" data-layer="racks" checked> Racks</label>
+            <label class="layer-toggle"><input type="checkbox" data-layer="lanes" checked> Lanes</label>
+            <label class="layer-toggle"><input type="checkbox" data-layer="vehicles" checked> Vehicles</label>
+            <label class="layer-toggle"><input type="checkbox" data-layer="boxes" checked> Boxes</label>
+            <label class="layer-toggle"><input type="checkbox" data-layer="hazards" checked> Hazards</label>
+            <label class="layer-toggle"><input type="checkbox" data-layer="paths" checked> Trajectories</label>
+            <label class="layer-toggle"><input type="checkbox" data-layer="zones" checked> Safe Zones</label>
+            <label class="layer-toggle"><input type="checkbox" data-layer="labels" checked> Locations</label>
+            <label class="layer-toggle" style="color:var(--brand-cyan);font-weight:700"><input type="checkbox" data-layer="navDebug" id="chk-nav-debug"> Nav Graph Debug</label>
+          </div>
+
+          <div class="overlay-action-controls">
+            <span style="font-size:11px;color:var(--tx-muted);font-weight:600">💡 Click floor to Inject Event</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 2: OVERVIEW -->
+      <section class="view-panel" id="view-overview">
+        <div class="dashboard-grid">
+          <div class="grid-cards-row">
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>Active AMRs</span>
+                <span>🤖</span>
+              </div>
+              <div class="stat-card-value" style="color:var(--accent-sky)">5 / 5</div>
+              <div class="stat-card-sub">All agents in normal operating state</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>Fleet Battery Health</span>
+                <span>🔋</span>
+              </div>
+              <div class="stat-card-value" style="color:var(--status-success)">98.5%</div>
+              <div class="stat-card-sub">Dynamic discharge calculus active</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>Safety Certificate</span>
+                <span>🛡️</span>
+              </div>
+              <div class="stat-card-value" style="color:var(--status-success)">ZERO COLLISION</div>
+              <div class="stat-card-sub">Architectural constraint enforced</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>Communication Mode</span>
+                <span>📶</span>
+              </div>
+              <div class="stat-card-value" style="color:var(--accent-blue)">MQTT + UWB</div>
+              <div class="stat-card-sub">Wi-Fi Direct mesh fallback enabled</div>
+            </div>
+          </div>
+
+          <!-- Quick Presets Launchpad -->
+          <div class="table-container">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Deterministic Scenario Demonstrations</h3>
+              <span style="font-size:11px;color:var(--tx-muted)">Ready for evaluator presentation</span>
+            </div>
+            <div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px">
+              <button class="btn-icon-text primary" id="btn-demo-1">▶ Demo 1: Multi-Task Allocation Auction</button>
+              <button class="btn-icon-text primary" id="btn-demo-2">▶ Demo 2: Shared Aisle Priority Negotiation</button>
+              <button class="btn-icon-text primary" id="btn-demo-3">▶ Demo 3: Low Battery (<20%) & Task Reassign</button>
+              <button class="btn-icon-text primary" id="btn-demo-4">▶ Demo 4: Wi-Fi Dead Zone + UWB P2P Relay</button>
+              <button class="btn-icon-text primary" id="btn-demo-5">▶ Demo 5: Fire Emergency + D* Lite Evac</button>
+              <button class="btn-icon-text primary" id="btn-demo-6">▶ Demo 6: Dynamic Obstacle in Aisle D</button>
+              <button class="btn-icon-text primary" id="btn-demo-7">▶ Demo 7: Efficiency Comparison Benchmark</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 3: TASKS & BIDDING -->
+      <section class="view-panel" id="view-tasks">
+        <div class="dashboard-grid">
+          <div class="table-container">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Operator Material-Handling Task Queue & Allocation Table</h3>
+              <div style="display:flex;gap:8px">
+                <input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none">
+                <button class="btn-icon-text" id="btn-upload-csv">📂 Upload Task CSV</button>
+                <button class="btn-icon-text primary" id="btn-open-create-task">+ Create Manual Task</button>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Task ID</th>
+                  <th>Physical Box</th>
+                  <th>Source (Pickup)</th>
+                  <th>Destination (Drop)</th>
+                  <th>Priority</th>
+                  <th>Payload</th>
+                  <th>Status</th>
+                  <th>Assigned AMR</th>
+                  <th>Auction Bid Score</th>
+                </tr>
+              </thead>
+              <tbody id="tasks-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 4: LIVE COMMUNICATION CONSOLE -->
+      <section class="view-panel" id="view-communication">
+        <div class="comm-terminal-container">
+          <div class="comm-filters-bar">
+            <button class="filter-chip active" data-filter="ALL">ALL</button>
+            <button class="filter-chip" data-filter="AMR">AMR</button>
+            <button class="filter-chip" data-filter="TASK">TASK</button>
+            <button class="filter-chip" data-filter="BIDDING">BIDDING</button>
+            <button class="filter-chip" data-filter="MAPF">MAPF</button>
+            <button class="filter-chip" data-filter="DSTAR_LITE">D* LITE</button>
+            <button class="filter-chip" data-filter="CONFLICT">CONFLICT</button>
+            <button class="filter-chip" data-filter="BATTERY">BATTERY</button>
+            <button class="filter-chip" data-filter="MQTT">MQTT</button>
+            <button class="filter-chip" data-filter="UWB">UWB</button>
+            <button class="filter-chip" data-filter="WIFI_DIRECT">WI-FI DIRECT</button>
+            <button class="filter-chip" data-filter="EMERGENCY">EMERGENCY</button>
+            <button class="filter-chip" data-filter="SAFETY">SAFETY</button>
+
+            <input type="text" class="comm-search-input" id="comm-search-input" placeholder="Search protocol messages...">
+            <button class="ctrl-btn" id="btn-clear-logs" style="margin-left:8px">Clear</button>
+          </div>
+
+          <div class="comm-terminal-output" id="comm-terminal-output">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </section>
+
+      <!-- View 5: FLEET TELEMETRY -->
+      <section class="view-panel" id="view-fleet">
+        <div class="dashboard-grid">
+          <div class="table-container">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Fleet Telemetry & Operational State Matrix</h3>
+              <span style="font-size:11px;color:var(--tx-muted)">MassRobotics AMR Standard Protocol</span>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>AMR ID</th>
+                  <th>Battery %</th>
+                  <th>Health</th>
+                  <th>Completed</th>
+                  <th>Reassigned</th>
+                  <th>Distance</th>
+                  <th>Energy</th>
+                  <th>Wait Time</th>
+                  <th>Idle Time</th>
+                  <th>Replans</th>
+                  <th>Connectivity</th>
+                </tr>
+              </thead>
+              <tbody id="analytics-fleet-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 6: ALGORITHMS (MAPF, D* LITE, SAFETY) -->
+      <section class="view-panel" id="view-algorithms">
+        <div class="dashboard-grid">
+          <div class="grid-cards-row">
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>MAPF Trajectories</span>
+                <span>🌐</span>
+              </div>
+              <div class="stat-card-value" id="algo-mapf-trajectories">0</div>
+              <div class="stat-card-sub">Conflict-free space-time paths</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>Predicted Conflicts</span>
+                <span>⚠️</span>
+              </div>
+              <div class="stat-card-value" id="algo-mapf-conflicts">0</div>
+              <div class="stat-card-sub">Proactively resolved before move</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>D* Lite Path Repairs</span>
+                <span>🔧</span>
+              </div>
+              <div class="stat-card-value" id="algo-dstar-replans">0</div>
+              <div class="stat-card-sub">Incremental dynamic graph repairs</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>Safety Checks Passed</span>
+                <span>🛡️</span>
+              </div>
+              <div class="stat-card-value" style="color:var(--status-success)" id="algo-safety-passed">0</div>
+              <div class="stat-card-sub">Zero-collision constraint verified</div>
+            </div>
+          </div>
+
+          <!-- Predictive Coordination Diagnostics (Horizon, Lead Time, Proactive Resolutions) -->
+          <div class="table-container">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Predictive Fleet Coordination — Future Conflict Table (25.0s Horizon)</h3>
+              <span style="font-size:11px;color:var(--status-success)">● 100% Proactive Coordination — Zero Reactive Arbitration</span>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Conflict ID</th>
+                  <th>Conflict Type</th>
+                  <th>Contested Location</th>
+                  <th>Involved AMRs</th>
+                  <th>Predicted ETAs</th>
+                  <th>Time Gap</th>
+                  <th>Proactive Resolution Strategy</th>
+                  <th>Coordination Status</th>
+                </tr>
+              </thead>
+              <tbody id="predicted-conflicts-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-container">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Space-Time Reservation Table Snapshot</h3>
+              <span style="font-size:11px;color:var(--tx-muted)">Temporal coordinate reservations preventing deadlocks</span>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Reserved Node</th>
+                  <th>Reserved AMR</th>
+                  <th>Start Time</th>
+                  <th>End Time</th>
+                  <th>Priority Tube</th>
+                </tr>
+              </thead>
+              <tbody id="reservations-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 7: SAFETY SUPERVISOR -->
+      <section class="view-panel" id="view-safety">
+        <div class="dashboard-grid">
+          <div class="grid-cards-row">
+            <div class="stat-card" style="border-color:rgba(16,185,129,0.3)">
+              <div class="stat-card-header">
+                <span>Collision Violations</span>
+                <span>🚫</span>
+              </div>
+              <div class="stat-card-value" style="color:var(--status-success)" id="algo-safety-collisions">0</div>
+              <div class="stat-card-sub">Mathematical hard constraint: 0</div>
+            </div>
+
+            <div class="stat-card" style="border-color:rgba(16,185,129,0.3)">
+              <div class="stat-card-header">
+                <span>Deadlock Violations</span>
+                <span>🔒</span>
+              </div>
+              <div class="stat-card-value" style="color:var(--status-success)" id="algo-safety-deadlocks">0</div>
+              <div class="stat-card-sub">Proactive space-time validation</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>Boundary Violations</span>
+                <span>📐</span>
+              </div>
+              <div class="stat-card-value" style="color:var(--status-success)" id="algo-safety-boundaries">0</div>
+              <div class="stat-card-sub">Rack and wall boundaries enforced</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span>Unsafe Paths Rejected</span>
+                <span>🛑</span>
+              </div>
+              <div class="stat-card-value" id="algo-safety-rejected">0</div>
+              <div class="stat-card-sub">Intercepted prior to execution</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 8: SCENARIOS & EVENT TIMELINE -->
+      <section class="view-panel" id="view-scenarios">
+        <div class="dashboard-grid">
+          <!-- Preset Scenarios & Dead Zone Tests Control Panel -->
+          <div class="table-container" style="grid-column: 1 / -1; margin-bottom: 20px;">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Deterministic Scenario Presets & Decentralized Mesh Tests</h3>
+              <span style="font-size:11px;color:var(--tx-muted)">One-click execution of EdgeFleet deterministic validation test suites</span>
+            </div>
+            <div style="padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+              <button class="ctrl-btn" id="btn-demo-1" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--accent-sky);display:block">Demo 1: Multi-Task Allocation</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Multi-criteria auction allocation across 5 AMRs</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-2" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--status-warning);display:block">★ Demo 2: Predictive Junction Coordination</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Acceptance Test 1: AMR-01 & AMR-04 Central Junction</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-3amr-junction" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--status-warning);display:block">Test: 3-AMR Junction Coordination</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Acceptance Test 2: Space-time reservations #1, #2, #3</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-3" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--status-warning);display:block">Demo 3: Low Battery Reassignment</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Critical battery (<20%) dynamic task handover</span>
+                </div>
+              </button>
+              <button class="ctrl-btn primary" id="btn-demo-4" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto; border: 1px solid var(--accent-sky);">
+                <div>
+                  <b style="color:#fff;display:block">★ Demo 4: Wi-Fi Dead Zone + P2P Mesh</b>
+                  <span style="font-size:11px;color:rgba(255,255,255,0.85)">AMR-04 moves through dead zone via AMR-03 relay without stopping</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-deadzone-no-peer" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--tx-bright);display:block">Test: Dead Zone (No Peer in Range)</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Decentralized offline mode — continues moving autonomously</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-deadzone-dynamic" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--tx-bright);display:block">Test: Dynamic Peer Discovery</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Peer AMR moves into UWB range (<35m) during transit</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-deadzone-conflict" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--tx-bright);display:block">Test: Dead Zone Future Conflict</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Predictive junction coordination over Wi-Fi Direct</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-5" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--status-danger);display:block">Demo 5: Fire Emergency + D* Lite</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Dynamic corridor block & safe-zone evacuation</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-6" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--status-warning);display:block">Demo 6: Dynamic Obstacle</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">Fallen pallet obstacle with real-time replanning</span>
+                </div>
+              </button>
+              <button class="ctrl-btn" id="btn-demo-7" style="justify-content: flex-start; text-align: left; padding: 12px; height: auto;">
+                <div>
+                  <b style="color:var(--accent-sky);display:block">Demo 7: Efficiency Benchmark</b>
+                  <span style="font-size:11px;color:var(--tx-secondary)">EdgeFleet MAPF vs Stop-and-Wait comparative test</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Active Injected Hazards</h3>
+              <button class="btn-icon-text danger" id="btn-clear-all-hazards">Clear All Hazards</button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Hazard Name</th>
+                  <th>Type</th>
+                  <th>Coordinates (X, Z)</th>
+                  <th>Radius</th>
+                  <th>Severity</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="hazards-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-container">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Simulation Event Timeline</h3>
+              <span style="font-size:11px;color:var(--tx-muted)">Chronological decision & emergency records</span>
+            </div>
+            <div style="padding:20px">
+              <div class="timeline-track" id="scenario-timeline-track">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 9: ANALYTICS & BENCHMARK REPORT -->
+      <section class="view-panel" id="view-analytics">
+        <div class="dashboard-grid">
+          <div class="table-container">
+            <div class="table-header-toolbar">
+              <h3 class="table-title">Empirical Performance Benchmark: Stop-and-Wait vs. EdgeFleet MAPF + D* Lite</h3>
+              <button class="btn-icon-text primary" id="btn-run-benchmark-calc">↻ Recalculate Live Benchmark</button>
+            </div>
+            
+            <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+              <!-- Stop and Wait Baseline -->
+              <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:18px">
+                <h4 style="font-size:14px;color:var(--status-warning);margin-bottom:12px">Traditional Stop-and-Wait</h4>
+                <div class="telemetry-grid">
+                  <div class="telemetry-cell">
+                    <span class="cell-label">Total Mission Time</span>
+                    <div class="cell-val" id="bench-stopwait-time">--</div>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">Fleet Waiting Time</span>
+                    <div class="cell-val" id="bench-stopwait-wait">--</div>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">Distance Travelled</span>
+                    <div class="cell-val" id="bench-stopwait-dist">--</div>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">Energy Consumed</span>
+                    <div class="cell-val" id="bench-stopwait-energy">--</div>
+                  </div>
+                  <div class="telemetry-cell" style="grid-column:1 / -1">
+                    <span class="cell-label">Task Throughput</span>
+                    <div class="cell-val" id="bench-stopwait-throughput">--</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- EdgeFleet Engine -->
+              <div style="background:var(--bg-card);border:1px solid rgba(56,189,248,0.3);border-radius:var(--radius-md);padding:18px">
+                <h4 style="font-size:14px;color:var(--accent-sky);margin-bottom:12px">EdgeFleet (MAPF + D* Lite)</h4>
+                <div class="telemetry-grid">
+                  <div class="telemetry-cell">
+                    <span class="cell-label">Total Mission Time</span>
+                    <div class="cell-val" style="color:var(--status-success)" id="bench-edgefleet-time">--</div>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">Fleet Waiting Time</span>
+                    <div class="cell-val" style="color:var(--status-success)" id="bench-edgefleet-wait">--</div>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">Distance Travelled</span>
+                    <div class="cell-val" id="bench-edgefleet-dist">--</div>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">Energy Consumed</span>
+                    <div class="cell-val" style="color:var(--status-success)" id="bench-edgefleet-energy">--</div>
+                  </div>
+                  <div class="telemetry-cell" style="grid-column:1 / -1">
+                    <span class="cell-label">Task Throughput</span>
+                    <div class="cell-val" style="color:var(--accent-sky)" id="bench-edgefleet-throughput">--</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mathematical Improvement Summary -->
+            <div style="margin:0 20px 20px 20px;background:rgba(37,99,235,0.1);border:1px solid rgba(56,189,248,0.3);border-radius:var(--radius-md);padding:16px;display:flex;justify-content:space-around;align-items:center;flex-wrap:wrap;gap:12px">
+              <div style="text-align:center">
+                <span style="font-size:11px;color:var(--tx-muted);text-transform:uppercase;font-weight:700">Waiting Time Reduction</span>
+                <div style="font-size:24px;font-weight:800;font-family:var(--font-mono);color:var(--status-success)" id="bench-imp-wait">--%</div>
+              </div>
+              <div style="text-align:center">
+                <span style="font-size:11px;color:var(--tx-muted);text-transform:uppercase;font-weight:700">Mission Time Saved</span>
+                <div style="font-size:24px;font-weight:800;font-family:var(--font-mono);color:var(--status-success)" id="bench-imp-time">--%</div>
+              </div>
+              <div style="text-align:center">
+                <span style="font-size:11px;color:var(--tx-muted);text-transform:uppercase;font-weight:700">Energy Savings</span>
+                <div style="font-size:24px;font-weight:800;font-family:var(--font-mono);color:var(--status-success)" id="bench-imp-energy">--%</div>
+              </div>
+              <div style="text-align:center">
+                <span style="font-size:11px;color:var(--tx-muted);text-transform:uppercase;font-weight:700">Throughput Gain</span>
+                <div style="font-size:24px;font-weight:800;font-family:var(--font-mono);color:var(--accent-sky)" id="bench-imp-throughput">--%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AMR Slide-out Detail Drawer -->
+      <div id="amr-drawer">
+        <div class="drawer-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <h3 style="font-size:16px;color:var(--tx-bright);font-family:var(--font-mono)" id="drawer-amr-id">AMR-01</h3>
+            <span class="amr-state-tag info" id="drawer-amr-state">IDLE</span>
+          </div>
+          <button class="drawer-close" id="btn-close-drawer">✕</button>
+        </div>
+
+        <div class="drawer-content">
+          <!-- Kinematics -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">Kinematics & Spatial Position</div>
+            <div class="telemetry-grid">
+              <div class="telemetry-cell">
+                <span class="cell-label">Position (X, Z)</span>
+                <div class="cell-val"><span id="drawer-pos-x">0.0</span>, <span id="drawer-pos-z">0.0</span></div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Linear Velocity</span>
+                <div class="cell-val" id="drawer-velocity">0.00 m/s</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Heading Angle</span>
+                <div class="cell-val" id="drawer-heading">0°</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Distance Travelled</span>
+                <div class="cell-val" id="drawer-distance">0.0 m</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Battery & Energy -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">
+              <span>Battery & State of Charge</span>
+              <span id="drawer-battery-val" style="font-family:var(--font-mono);color:var(--status-success)">92.0%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill battery-high" id="drawer-battery-fill" style="width:92%"></div>
+            </div>
+            <div class="telemetry-grid" style="margin-top:10px">
+              <div class="telemetry-cell">
+                <span class="cell-label">Energy Consumed</span>
+                <div class="cell-val" id="drawer-energy">0.0 Wh</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Carried Payload</span>
+                <div class="cell-val" id="drawer-payload">0 kg</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Max Payload Cap</span>
+                <div class="cell-val" id="drawer-payload-capacity">350 kg</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Current Box Item</span>
+                <div class="cell-val" style="color:var(--accent-sky)" id="drawer-box-id">None</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Task & Route -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">Current Mission & Material Handling</div>
+            <p style="font-size:12px;color:var(--tx-secondary);margin-bottom:6px">Task ID: <b style="color:var(--accent-sky)" id="drawer-task-id">None</b> | Handling: <b style="color:var(--status-warning)" id="drawer-handling-state">IDLE</b></p>
+            <div style="background:rgba(0,0,0,0.25);padding:8px;border-radius:var(--radius-sm);font-family:var(--font-mono);font-size:11px;color:var(--tx-primary);word-break:break-word" id="drawer-active-route">
+              Idle at docking station
+            </div>
+          </div>
+
+          <!-- Edge & Geometry Validation Inspection (Zero-Collision Physical Supervisor) -->
+          <div class="drawer-section" id="drawer-edge-validation-section">
+            <div class="drawer-section-title" style="display:flex;justify-content:space-between">
+              <span>Edge & Geometry Validation</span>
+              <span id="drawer-exec-status" class="status-pill success">APPROVED</span>
+            </div>
+            <div class="telemetry-grid" style="font-size:11px">
+              <div class="telemetry-cell">
+                <span class="cell-label">Current Node</span>
+                <div class="cell-val" id="drawer-edge-curr-node" style="color:var(--accent-sky)">--</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Next Node</span>
+                <div class="cell-val" id="drawer-edge-next-node" style="color:var(--accent-sky)">--</div>
+              </div>
+              <div class="telemetry-cell" style="grid-column:1 / -1">
+                <span class="cell-label">Current Segment Edge</span>
+                <div class="cell-val" id="drawer-edge-name" style="font-family:var(--font-mono)">--</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Edge Valid</span>
+                <div class="cell-val" id="drawer-edge-valid" style="color:var(--status-success)">YES</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Lane Valid</span>
+                <div class="cell-val" id="drawer-lane-valid" style="color:var(--status-success)">YES</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Wall Intersection</span>
+                <div class="cell-val" id="drawer-wall-intersect" style="color:var(--status-success)">NO</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Rack Intersection</span>
+                <div class="cell-val" id="drawer-rack-intersect" style="color:var(--status-success)">NO</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Gate Required</span>
+                <div class="cell-val" id="drawer-gate-required">NO</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Gate Valid</span>
+                <div class="cell-val" id="drawer-gate-valid" style="color:var(--status-success)">YES</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Clearance</span>
+                <div class="cell-val" id="drawer-clearance-pass" style="color:var(--status-success)">PASS</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Execution</span>
+                <div class="cell-val" id="drawer-exec-verdict" style="color:var(--status-success);font-weight:700">APPROVED</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decoupled 4-State Architectural Model & Mesh Connectivity -->
+          <div class="drawer-section">
+            <div class="drawer-section-title">Decoupled Fleet Architecture States</div>
+            <div class="telemetry-grid" style="font-size:11px;margin-bottom:12px">
+              <div class="telemetry-cell">
+                <span class="cell-label">Communication State</span>
+                <div class="cell-val" id="drawer-comm-state" style="color:var(--accent-sky);font-weight:700">ONLINE</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Navigation State</span>
+                <div class="cell-val" id="drawer-nav-state" style="color:var(--status-success);font-weight:700">MOVING</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Task State</span>
+                <div class="cell-val" id="drawer-task-state" style="color:var(--status-warning);font-weight:700">EXECUTING</div>
+              </div>
+              <div class="telemetry-cell">
+                <span class="cell-label">Safety Supervisor</span>
+                <div class="cell-val" id="drawer-safety-state" style="color:var(--status-success);font-weight:700">SAFE</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:8px;font-size:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="color:var(--tx-muted)">Infrastructure Wi-Fi:</span>
+                <b id="drawer-wifi-status" style="color:var(--status-success)">CONNECTED</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="color:var(--tx-muted)">Wi-Fi Direct P2P:</span>
+                <b id="drawer-wifidirect-status" style="color:var(--tx-muted)">STANDBY</b>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--tx-muted)">Active Mesh Relay Peer:</span>
+                <b id="drawer-peer-relay" style="color:var(--accent-sky)">NONE</b>
+              </div>
+            </div>
+
+            <span style="font-size:10.5px;color:var(--tx-muted);text-transform:uppercase;font-weight:700;display:block;margin-top:10px;margin-bottom:6px">UWB Proximity Radar:</span>
+            <table class="data-table" style="font-size:11px">
+              <thead>
+                <tr>
+                  <th>Peer AMR</th>
+                  <th>Distance</th>
+                  <th>Signal</th>
+                </tr>
+              </thead>
+              <tbody id="drawer-uwb-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Click-To-Inject Context Menu -->
+      <div id="inject-context-menu">
+        <div class="inject-menu-title">Inject Dynamic Event</div>
+        <div class="inject-menu-item" data-inject="FIRE">🔥 Fire / Thermal Runaway</div>
+        <div class="inject-menu-item" data-inject="WIFI_DEAD_ZONE">📡 Wi-Fi Dead Zone</div>
+        <div class="inject-menu-item" data-inject="BLOCKED_AISLE">🚧 Block Aisle (Fallen Box)</div>
+        <div class="inject-menu-item" data-inject="HUMAN_INTRUSION">👤 Human Worker Intrusion</div>
+      </div>
+
+      <!-- Modal: Create Task with Box Selection -->
+      <div class="modal-overlay" id="modal-create-task">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3 style="font-size:15px;color:var(--tx-bright)">Create Material-Handling Transport Task</h3>
+            <button class="drawer-close" id="btn-close-create-task">✕</button>
+          </div>
+          <div class="modal-body">
+            <!-- Box Selection Form Row -->
+            <div class="form-row" style="margin-bottom:14px">
+              <div class="form-group" style="flex:1">
+                <label style="color:var(--accent-sky);font-weight:700">Select Warehouse Box (Physical Item)</label>
+                <select class="form-control" id="task-box-select" style="border-color:var(--accent-sky)">
+                  <!-- Dynamically populated from available boxes -->
+                </select>
+              </div>
+            </div>
+
+            <!-- Box Metadata Card (Auto-filled) -->
+            <div id="box-meta-card" style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.25);border-radius:var(--radius-sm);padding:10px;margin-bottom:14px;font-size:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="color:var(--tx-muted)">Selected Box:</span>
+                <b id="box-meta-id" style="color:var(--tx-bright)">--</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="color:var(--tx-muted)">Rack Storage:</span>
+                <b id="box-meta-rack" style="color:var(--accent-sky)">--</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="color:var(--tx-muted)">Shelf / Slot:</span>
+                <b id="box-meta-shelf" style="color:var(--accent-amber)">--</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="color:var(--tx-muted)">Aisle Pickup Node:</span>
+                <b id="box-meta-pickup" style="color:var(--accent-sky)">--</b>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="color:var(--tx-muted)">Payload Mass:</span>
+                <b id="box-meta-weight" style="color:var(--status-warning)">--</b>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--tx-muted)">Inventory Status:</span>
+                <b id="box-meta-status" style="color:var(--status-success)">None Selected</b>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Source Node (Pickup)</label>
+                <select class="form-control" id="task-src-select">
+                  <option value="INBOUND_BUF_1">INBOUND_BUF_1 (Inbound Buffer 1)</option>
+                  <option value="INBOUND_BUF_2">INBOUND_BUF_2 (Inbound Buffer 2)</option>
+                  <option value="BUFFER_SORT_1">BUFFER_SORT_1 (Box Buffer / Sorting 1)</option>
+                  <option value="BUFFER_SORT_2">BUFFER_SORT_2 (Box Buffer / Sorting 2)</option>
+                  <option value="HOLDING_1">HOLDING_1 (Retaining / Holding 1)</option>
+                  <option value="HOLDING_2">HOLDING_2 (Retaining / Holding 2)</option>
+                  <option value="DOCK_IN_1">DOCK_IN_1 (Receiving Dock 1)</option>
+                  <option value="DOCK_IN_2">DOCK_IN_2 (Receiving Dock 2)</option>
+                  <option value="PACK_1">PACK_1 (Packaging Hub 1)</option>
+                  <option value="PACK_2">PACK_2 (Packaging Hub 2)</option>
+                  <option value="AISLE_A_MID">AISLE_A_MID (Aisle A Storage)</option>
+                  <option value="AISLE_B_MID">AISLE_B_MID (Aisle B Storage)</option>
+                  <option value="AISLE_C_MID">AISLE_C_MID (Aisle C Storage)</option>
+                  <option value="AISLE_D_MID">AISLE_D_MID (Aisle D Storage)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Destination Node (Delivery)</label>
+                <select class="form-control" id="task-dst-select">
+                  <option value="DISPATCH_1">DISPATCH_1 (Dispatch Staging)</option>
+                  <option value="DISPATCH_2">DISPATCH_2 (Dispatch Conveyor)</option>
+                  <option value="RETURN_INSPECT_1">RETURN_INSPECT_1 (Return Inspection)</option>
+                  <option value="BUFFER_SORT_1">BUFFER_SORT_1 (Box Buffer / Sorting 1)</option>
+                  <option value="BUFFER_SORT_2">BUFFER_SORT_2 (Box Buffer / Sorting 2)</option>
+                  <option value="HOLDING_1">HOLDING_1 (Retaining / Holding Area 1)</option>
+                  <option value="HOLDING_2">HOLDING_2 (Retaining / Holding Area 2)</option>
+                  <option value="PACK_1">PACK_1 (Packaging Hub 1)</option>
+                  <option value="PACK_2">PACK_2 (Packaging Hub 2)</option>
+                  <option value="INBOUND_BUF_1">INBOUND_BUF_1 (Inbound Buffer 1)</option>
+                  <option value="MAINT_1">MAINT_1 (Maintenance Hub)</option>
+                  <option value="AISLE_A_S">AISLE_A_S (Aisle A South)</option>
+                  <option value="AISLE_C_S">AISLE_C_S (Aisle C South)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Priority (0 - 100)</label>
+                <input type="number" class="form-control" id="task-priority-input" value="75" min="0" max="100">
+              </div>
+
+              <div class="form-group">
+                <label>Payload Mass (kg)</label>
+                <input type="number" class="form-control" id="task-payload-input" value="100" min="10" max="500">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Task Type</label>
+                <select class="form-control" id="task-type-select">
+                  <option value="Box Transport">Box Transport</option>
+                  <option value="Inbound Storage">Inbound Storage</option>
+                  <option value="Outbound Express">Outbound Express</option>
+                  <option value="Cross-Docking">Cross-Docking</option>
+                  <option value="Replenishment">Replenishment</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Deadline Window (seconds)</label>
+                <input type="number" class="form-control" id="task-deadline-input" value="120" min="30" max="600">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-icon-text primary" id="btn-submit-create-task">Submit to Auction</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Bid Details Viewer -->
+      <div class="modal-overlay" id="modal-bid-details">
+        <div class="modal-card" style="max-width:700px">
+          <div class="modal-header">
+            <h3 style="font-size:15px;color:var(--tx-bright)">Auction Decision Trace & Component Breakdown</h3>
+            <button class="drawer-close" onclick="document.getElementById('modal-bid-details').classList.remove('open')">✕</button>
+          </div>
+          <div class="modal-body" id="modal-bid-details-body">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Application Bootstrap -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

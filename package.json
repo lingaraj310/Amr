@@ -1,0 +1,13 @@
+{
+  "name": "edgefleet-simulation",
+  "version": "1.0.0",
+  "description": "EdgeFleet - Intelligent 3D AMR Fleet Simulation & Management Dashboard",
+  "main": "index.html",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["amr", "mapf", "dstar-lite", "warehouse", "threejs", "simulation", "mqtt", "uwb"],
+  "author": "Google DeepMind Pair Programming",
+  "license": "MIT"
+}
